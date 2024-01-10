@@ -46,31 +46,77 @@ def readPFM(file):
     return data, scale
 
 
+# def writePFM(file, image, scale=1):
+#     file = open(file, 'wb')
+
+#     color = None
+
+#     if image.dtype.name != 'float32':
+#         raise Exception('Image dtype must be float32.')
+
+#     image = np.flipud(image)
+
+#     if len(image.shape) == 3 and image.shape[2] == 3:  # color image
+#         color = True
+#     elif len(image.shape) == 2 or len(image.shape) == 3 and image.shape[2] == 1:  # greyscale
+#         color = False
+#     else:
+#         raise Exception('Image must have H x W x 3, H x W x 1 or H x W dimensions.')
+
+#     file.write('PF\n' if color else 'Pf\n'.encode())
+#     file.write('%d %d\n'.encode() % (image.shape[1], image.shape[0]))
+
+#     endian = image.dtype.byteorder
+
+#     if endian == '<' or endian == '=' and sys.byteorder == 'little':
+#         scale = -scale
+
+#     file.write('%f\n'.encode() % scale)
+
+#     image.tofile(file)
+
 def writePFM(file, image, scale=1):
-    file = open(file, 'wb')
+    with open(file, 'wb') as file:
+        if image.dtype.name != 'float32':
+            raise Exception('Image dtype must be float32.')
 
-    color = None
+        image = np.flipud(image)
 
-    if image.dtype.name != 'float32':
-        raise Exception('Image dtype must be float32.')
+        if len(image.shape) == 3 and image.shape[2] == 3:  # color image
+            color = True
+        elif len(image.shape) == 2 or (len(image.shape) == 3 and image.shape[2] == 1):  # greyscale
+            color = False
+        else:
+            raise Exception('Image must have H x W x 3, H x W x 1 or H x W dimensions.')
 
-    image = np.flipud(image)
+        file.write(('PF\n' if color else 'Pf\n').encode())
+        file.write(f'{image.shape[1]} {image.shape[0]}\n'.encode())
 
-    if len(image.shape) == 3 and image.shape[2] == 3:  # color image
-        color = True
-    elif len(image.shape) == 2 or len(image.shape) == 3 and image.shape[2] == 1:  # greyscale
-        color = False
-    else:
-        raise Exception('Image must have H x W x 3, H x W x 1 or H x W dimensions.')
+        endian = image.dtype.byteorder
 
-    file.write('PF\n' if color else 'Pf\n'.encode())
-    file.write('%d %d\n'.encode() % (image.shape[1], image.shape[0]))
+        if endian == '<' or (endian == '=' and sys.byteorder == 'little'):
+            scale = -scale
 
-    endian = image.dtype.byteorder
+        file.write(f'{scale}\n'.encode())
 
-    if endian == '<' or endian == '=' and sys.byteorder == 'little':
-        scale = -scale
+        image.tofile(file)
 
-    file.write('%f\n'.encode() % scale)
+def convert_tiff_to_pfm(input_folder_path, output_folder_path):
+    if not os.path.exists(output_folder_path):
+        os.makedirs(output_folder_path)
 
-    image.tofile(file)
+    for filename in os.listdir(input_folder_path):
+        if filename.endswith(".tiff") or filename.endswith(".tif"):
+            tiff_path = os.path.join(input_folder_path, filename)
+            pfm_filename = os.path.splitext(filename)[0] + '.pfm'
+            pfm_path = os.path.join(output_folder_path, pfm_filename)
+
+            image = cv2.imread(tiff_path, -1)  # -1 to read the image as is
+            if image is None:
+                print(f"Failed to load {tiff_path}")
+                continue
+
+            image_np = np.array(image, dtype=np.float32)
+
+            writePFM(pfm_path, image_np)
+            print(f"Written PFM file: {pfm_path}")
